@@ -54,36 +54,38 @@ If SOCKET-NAME is not provided, use the default value."
 
 ;; 9p-handle-message handles incoming messages from
 ;; 9p-server-socket.
-(defun 9p-handle-message (proc string)
+(defun 9p-handle-message (proc buffer)
   "Process incoming data from the 9P client."
-  (condition-case err
-      (progn
-        (9p-log "Received 9P message: %d bytes" (length string))
-        (9p-log "Raw message: %s" (9p-hex-dump string))
+  (let ((unibyte-buffer (string-as-unibyte buffer)))
+    (condition-case err
+        (progn
+          (9p-log "Received 9P message: %d bytes" (length unibyte-buffer))
+          (9p-log "Raw message: %s" (9p-hex-dump unibyte-buffer))
 
-        ;; verify required headers present
-        (when (< (length string) 9)
-          (error "Message too short: %d bytes" (length string)))
+          ;; verify required headers present
+          (when (< (length unibyte-buffer) 9)
+            (error "Message too short: %d bytes" (length unibyte-buffer)))
 
-        ;; unpack 9p message
-        (let* ((size (9p-gbit32 string 0))
-               (type (9p-gbit8 string 4))
-               (tag (9p-ensure-32bit (9p-gbit32 string 5))))
+          ;; unpack 9p message
+          (let* ((size (9p-gbit32 unibyte-buffer 0))
+                 (type (9p-gbit8 unibyte-buffer 4))
+                 (tag (9p-gbit16 unibyte-buffer 5)))
 
-          (9p-log "Unpacked message headers - size: %d, type: %d, tag: %X" size type tag)
+            (9p-log "Unpacked message headers - size: %d, type: %d, tag: %X" size type tag)
 
-          ;; handle incoming 9p messages by type
-          (cond
-           ((= type (9p-message-type 'Tversion))
-            (9p-recv-Tversion proc (substring string 4)))
-           ((= type (9p-message-type 'Tattach))
-            (9p-recv-Tattach proc (substring string 4)))
-           (t (error "Unsupported message type: %d" type))))
-        (9p-log "Message handling completed successfully"))
-    (error
-     (9p-log "Error in 9p-handle-message: %s" err)
-     (9p-send-Rerror proc (9p-ensure-16bit #xFFFF) (error-message-string err)))))
-
+            ;; handle incoming 9p messages by type. for now, pass the
+            ;; full message with all headers. might be able to optimize
+            ;; out some of the headers (may not be worth the squeeze).
+            (cond
+             ((= type (9p-message-type 'Tversion))
+              (9p-recv-Tversion proc unibyte-buffer))
+             ((= type (9p-message-type 'Tattach))
+              (9p-recv-Tattach proc unibyte-buffer))
+             (t (error "Unsupported message type: %d" type))))
+          (9p-log "Message handling completed successfully"))
+      (error
+       (9p-log "Error in 9p-handle-message: %s" (error-message-string err))
+       (9p-send-Rerror proc (9p-ensure-16bit #xFFFF) (error-message-string err))))))
 
 ;; 9p-restart-server restarts the 9p server.
 (defun 9p-restart-server ()

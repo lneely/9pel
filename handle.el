@@ -26,18 +26,19 @@
   "Send an error response to the client."
   (let* ((error-string (encode-coding-string error-message 'utf-8))
          (message-size (+ 4 1 2 2 (length error-string)))
-         (response (make-string message-size 0)))
-    (9p-pbit32 response 0 message-size)
-    (aset response 4 (9p-message-type 'Rerror))
-    (9p-pbit16 response 5 (logand tag #xFFFF)) 
-    (9p-pbit16 response 7 (length error-string))
+         (response (make-string message-size 0))
+         (unibyte-response (string-as-unibyte response)))
+    (9p-pbit32 unibyte-response 0 message-size)
+    (aset unibyte-response 4 (9p-message-type 'Rerror))
+    (9p-pbit16 unibyte-response 5 (logand tag #xFFFF)) 
+    (9p-pbit16 unibyte-response 7 (length error-string))
     (dotimes (i (length error-string))
-      (aset response (+ 9 i) (aref error-string i)))
+      (aset unibyte-response (+ 9 i) (aref error-string i)))
     (9p-log "Sending Rerror - size: %d, tag: %04X, message: %s"
             message-size (logand tag #xFFFF) error-message)
-    (9p-log "Error response hex dump: %s" (9p-hex-dump response))
+    (9p-log "Error response hex dump: %s" (9p-hex-dump unibyte-response))
     (condition-case err
-        (process-send-string proc response)
+        (process-send-string proc unibyte-response)
       (error
-       (9p-log "Error sending response: %s" err)))
+       (9p-log "Error sending response: %s" (error-message-string err))))
     (9p-log "Rerror sent successfully")))
