@@ -45,7 +45,6 @@
   (let* ((tag (9p-gbit16 buffer 5)))
     (9p-send-Rauth proc tag)))
 
-
 ;; 9p-send-Rauth responds to a Tauth message with Rauth. The Rauth
 ;; returns NOFID, indicating to the client that no authentication is
 ;; required. Consequently it does not provide unames or anames in the
@@ -57,16 +56,23 @@
 ;; network.)
 (defun 9p-send-Rauth (proc tag)
   "Respond with Rauth message."
-  (let* ((total-length (+ 4 1 2 4))
+  (let* ((total-length (+ 4 1 2 4 4 8))
          (buffer (make-string total-length 0)))
 
     (9p-pbit32 buffer 0 total-length)
     (9p-pbit8 buffer 4 (9p-message-type 'Rauth))
     (9p-pbit16 buffer 5 tag)
-    (9p-pbit16 buffer 7 9P-NOFID)
+    (9p-pbit32 buffer 7 9P-NOFID)
+    (9p-pbit32 buffer 11 9P-NOFID)
+    (9p-pbit64 buffer 15 9P-NOFID)
 
     (9p-log "Sending Rauth message: %s" (9p-hex-dump buffer))
     (process-send-string proc buffer)))
+
+(defun 9p-recv-Tattach (proc buffer)
+  (let* ((tag (9p-gbit16 buffer 5)))
+    (9p-send-Rerror proc tag "Got Tattach")))
+
     
 ;; 9p-send-Rerror sends an Rerror message back to the client given a
 ;; server process and a tag (the tag is set by the client).
