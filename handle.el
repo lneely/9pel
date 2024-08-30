@@ -1,6 +1,8 @@
 ;; handle.el provides message handlers for each type of 9P2000
 ;; message.
 
+;; 9p-recv-Tversion is invoked when a Tversion message is read from
+;; the socket. A Tversion expects an Rversion response.
 (defun 9p-recv-Tversion (proc buffer)
   "Handle a received Tversion message from the client."
   (let* ((tag (9p-gbit16 buffer 5))
@@ -15,8 +17,9 @@
     (9p-log "\tVersion-Size: %d" version-size)
     (9p-log "\tVersion-Data: %s" version-data)
     (9p-send-Rversion proc tag msize version-data)))
-    ;; (9p-send-Rerror proc tag "Got Tversion message")))
 
+;; 9p-send-Rversion generates a Rversion response and writes it to the
+;; socket.
 (defun 9p-send-Rversion (proc tag msize version)
   "Send an Rversion message via PROC with TAG, MSIZE, and VERSION."
   (let* ((version-length (length (encode-coding-string version 'utf-8)))
