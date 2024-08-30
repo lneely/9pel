@@ -1,3 +1,5 @@
+;; pack.el is concerned with packing and unpacking bits.
+
 (defun 9p-pbit8 (string offset value)
   "Put an 8-bit unsigned integer VALUE into STRING at OFFSET."
   (aset string offset (logand value #xFF)))
@@ -42,10 +44,3 @@
       (setq result (logior result (ash (logand (aref string (+ offset i)) #xFF) (* 8 i)))))
     result))
 
-(defun 9p-ensure-32bit (value)
-  "Ensure VALUE is a 32-bit integer."
-  (logand value #xFFFFFFFF))
-
-(defun 9p-ensure-16bit (value)
-  "Ensure VALUE is a 16-bit integer."
-  (logand value #xFFFF))
