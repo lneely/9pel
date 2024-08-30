@@ -51,11 +51,6 @@
 (defun 9p-message-type-symbol (value)
   (car (rassq value 9P-MESSAGE-TYPES)))
 
-
-
-
-
-
 (defun 9p-restart-server ()
   "Restart the 9P server."
   (interactive)
