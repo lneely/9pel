@@ -70,16 +70,14 @@ If SOCKET-NAME is not provided, use the default value."
                (type (9p-gbit8 string 4))
                (tag (9p-ensure-32bit (9p-gbit32 string 5))))
 
-          (9p-log "Unpacked message - size: %d, type: %d, tag: %X" size type tag)
+          (9p-log "Unpacked message headers - size: %d, type: %d, tag: %X" size type tag)
 
           ;; handle incoming 9p messages by type
           (cond
            ((= type (9p-message-type 'Tversion))
-            (9p-log "Got Tversion message")
-            (9p-handle-Tversion proc (substring string 4)))
+            (9p-recv-Tversion proc (substring string 4)))
            ((= type (9p-message-type 'Tattach))
-            (9p-log "Got Tattach message")
-            (9p-handle-Tattach proc (substring string 4)))
+            (9p-recv-Tattach proc (substring string 4)))
            (t (error "Unsupported message type: %d" type))))
         (9p-log "Message handling completed successfully"))
     (error
