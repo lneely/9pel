@@ -1,7 +1,6 @@
 (load-file "./pack.el")
 (load-file "./helpers.el")
 (load-file "./log.el")
-(load-file "./msg.el")
 (load-file "./handle.el")
 
 ;; 9P-NOTAG is a dummy tag value for use in special situations.
@@ -97,6 +96,8 @@ If SOCKET-NAME is not provided, use the default value."
               (9p-recv-Tauth proc unibyte-buffer))
              ((= type (9p-message-type 'Tattach))
               (9p-recv-Tattach proc unibyte-buffer))
+             ((= type (9p-message-type 'Tclunk))
+              (9p-recv-Tclunk proc unibyte-buffer))
              (t (error "Unsupported message type: %d" type))))
           (9p-log "Message handling completed successfully"))
       (error

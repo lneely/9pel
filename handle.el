@@ -71,10 +71,21 @@
     (9p-log "Sending Rauth message: %s" (9p-hex-dump buffer))
     (process-send-string proc buffer)))
 
+;; TODO: implement
 (defun 9p-recv-Tattach (proc buffer)
   (let* ((tag (9p-gbit16 buffer 5)))
     (9p-send-Rerror proc tag "Got Tattach")))
 
+;; TODO: implement
+(defun 9p-send-Rattach ())
+
+;; TODO: implement
+(defun 9p-recv-Tclunk (proc buffer)
+  (let* ((tag (9p-gbit16 buffer 5)))
+    (9p-send-Rerror proc tag "Got Tclunk")))
+
+;; TODO: implement
+(defun 9p-send-Rclunk (proc buffer))
     
 ;; 9p-send-Rerror sends an Rerror message back to the client given a
 ;; server process and a tag (the tag is set by the client).
