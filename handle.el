@@ -56,15 +56,17 @@
 ;; network.)
 (defun 9p-send-Rauth (proc tag)
   "Respond with Rauth message."
-  (let* ((total-length (+ 4 1 2 4 4 8))
+  (let* ((total-length (+ 4 1 2 13))
          (buffer (make-string total-length 0)))
 
     (9p-pbit32 buffer 0 total-length)
     (9p-pbit8 buffer 4 (9p-message-type 'Rauth))
     (9p-pbit16 buffer 5 tag)
-    (9p-pbit32 buffer 7 9P-NOFID)
-    (9p-pbit32 buffer 11 9P-NOFID)
-    (9p-pbit64 buffer 15 9P-NOFID)
+
+    ;; empty qid 
+    (9p-pbit8 buffer 7 0)
+    (9p-pbit32 buffer 8 0)
+    (9p-pbit64 buffer 12 0)
 
     (9p-log "Sending Rauth message: %s" (9p-hex-dump buffer))
     (process-send-string proc buffer)))
