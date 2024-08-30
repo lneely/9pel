@@ -66,13 +66,19 @@ If SOCKET-NAME is not provided, use the default value."
           (error "Message too short"))
 
         ;; unpack 9p message
-        (let* ((size (9p-gbit32-le string 0))
+        (let* ((size (9p-gbit32 string 0))
                (type (9p-gbit8 string 4))
-               (tag (9p-ensure-32bit (9p-gbit32-le string 5))))
+               (tag (9p-ensure-32bit (9p-gbit32 string 5))))
 
-        ;; handle incoming 9p messages by type
-        (cond
-          (t (error "Unsupported message type")))))
+          ;; handle incoming 9p messages by type
+          (cond
+           ((= type (9p-message-type 'Tversion))
+            (9p-log "Got Tversion message")
+            (9p-handle-Tversion proc (substring string 4)))
+           ((= type (9p-message-type 'Tattach))
+            (9p-log "Got Tattach message")
+            (9p-handle-Tattach proc (substring string 4)))  ; Pass the buffer starting from the type byte
+           (t (error "Unsupported message type")))))
     (error
      (9p-log "Error in 9p-handle-message: %s" err)
      (9p-send-Rerror proc (9p-ensure-16bit #xFFFF) (error-message-string err)))))

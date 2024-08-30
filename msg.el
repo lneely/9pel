@@ -43,3 +43,11 @@
 
 (defun 9p-message-type-symbol (value)
   (car (rassq value 9P-MESSAGE-TYPES)))
+
+(defun 9p-read-string (buffer)
+  "Read a 9P string from BUFFER.
+A 9P string consists of a 2-byte size followed by that many bytes of UTF-8 text."
+  (let* ((string-size (9p-gbit16 buffer))
+         (utf8-bytes (cl-loop for i from 0 below string-size
+                              collect (9p-uint8 buffer))))
+    (decode-coding-string (apply #'unibyte-string utf8-bytes) 'utf-8)))

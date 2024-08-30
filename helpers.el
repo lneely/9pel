@@ -17,10 +17,10 @@
   (let* ((error-string (encode-coding-string error-message 'utf-8))
          (message-size (+ 4 1 2 2 (length error-string)))
          (response (make-string message-size 0)))
-    (9p-pbit32-le response 0 message-size)
+    (9p-pbit32 response 0 message-size)
     (aset response 4 (9p-message-type 'Rerror))
-    (9p-pbit16-le response 5 (logand tag #xFFFF)) 
-    (9p-pbit16-le response 7 (length error-string))
+    (9p-pbit16 response 5 (logand tag #xFFFF)) 
+    (9p-pbit16 response 7 (length error-string))
     (dotimes (i (length error-string))
       (aset response (+ 9 i) (aref error-string i)))
     (9p-log "Sending Rerror - size: %d, tag: %04X, message: %s"
@@ -31,3 +31,17 @@
       (error
        (9p-log "Error sending response: %s" err)))
     (9p-log "Rerror sent successfully")))
+
+;; a variable-length field in 9p consists of a uint16 representing the
+;; size of the field, followed by a UTF-8 string containing the data.
+(defun 9p-read-variable-length-field (buffer)
+  "Read a variable-length field from BUFFER.
+Returns a list (SIZE STRING), where SIZE is the field size in bytes,
+and STRING is the decoded UTF-8 string."
+  (let* ((field-size (9p-gbit16 buffer))
+         (raw-bytes (cl-loop repeat field-size
+                             collect (9p-gbit8 buffer)))
+         (utf8-string (decode-coding-string 
+                       (apply #'unibyte-string raw-bytes) 
+                       'utf-8 t)))
+    (list field-size utf8-string)))
