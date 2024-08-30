@@ -23,3 +23,10 @@ and STRING is the decoded UTF-8 string."
                        (apply #'unibyte-string raw-bytes) 
                        'utf-8 t)))
     (list field-size utf8-string)))
+
+(defun 9p-message-type (type)
+  (cdr (assq type 9P-MESSAGE-TYPES)))
+
+(defun 9p-message-type-symbol (value)
+  (car (rassq value 9P-MESSAGE-TYPES)))
+

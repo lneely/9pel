@@ -4,8 +4,32 @@
 (load-file "./msg.el")
 (load-file "./handle.el")
 
+;; 9P-NOTAG is a dummy tag value for use in special situations.
+(defconst 9P-NOTAG #xFFFF
+  "Dummy tag value, equivalent to (ushort)~0U in C.")
+
+;; 9P-NOFID is a dummy fid value.
+(defconst 9P-NOFID #xFFFFFFFF
+  "Dummy fid value, equivalent to (u32int)~0U in C.")
+
+;; 9P-MESSAGE-TYPES enumerates the T- and R-messages defined in the
+;; protocol.
+(defconst 9P-MESSAGE-TYPES
+  '((Tversion . 100) (Rversion . 101) (Tauth . 102) (Rauth . 103)
+    (Tattach . 104) (Rattach . 105) (Terror . 106) (Rerror . 107)
+    (Tflush . 108) (Rflush . 109) (Twalk . 110) (Rwalk . 111)
+    (Topen . 112) (Ropen . 113) (Tcreate . 114) (Rcreate . 115)
+    (Tread . 116) (Rread . 117) (Twrite . 118) (Rwrite . 119)
+    (Tclunk . 120) (Rclunk . 121) (Tremove . 122) (Rremove . 123)
+    (Tstat . 124) (Rstat . 125) (Twstat . 126) (Rwstat . 127)
+    (Tmax . 128) (Topenfd . 98) (Ropenfd . 99))
+  "Enumeration of 9P message types.")
+
 ;; 9p-server-socket-name defines the filesystem path to create the
 ;; unix socket for 9p communication.
+;; 
+;; TODO: Create socket in user's xdg runtime directory instead of
+;; /tmp. Otherwise, this will not work on multi-user systems.
 (defvar 9p-server-socket-name "/tmp/emacs-9p-server.sock"
   "The name of the socket file used by the 9P server.")
 
