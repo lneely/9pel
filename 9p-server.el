@@ -79,13 +79,15 @@ If SOCKET-NAME is not provided, use the default value."
             (cond
              ((= type (9p-message-type 'Tversion))
               (9p-recv-Tversion proc unibyte-buffer))
+             ((= type (9p-message-type 'Tauth))
+              (9p-recv-Tauth proc unibyte-buffer))
              ((= type (9p-message-type 'Tattach))
               (9p-recv-Tattach proc unibyte-buffer))
              (t (error "Unsupported message type: %d" type))))
           (9p-log "Message handling completed successfully"))
       (error
        (9p-log "Error in 9p-handle-message: %s" (error-message-string err))
-       (9p-send-Rerror proc (9p-ensure-16bit #xFFFF) (error-message-string err))))))
+       (9p-send-Rerror proc tag (error-message-string err))))))
 
 ;; 9p-restart-server restarts the 9p server.
 (defun 9p-restart-server ()
