@@ -15,12 +15,10 @@
   "Handle a received Tattach message from the client."
   (9p-log "Got Tattach message")
   (9p-send-Rerror proc (9p-ensure-16bit #xFFFF) "Got Tattach message"))
-  )
 
 (defun 9p-send-Rattach (proc tag error-message)
   "Send a Rattach respons to the client."
-    (9p-log "Sending Rattach response")
-  )
+    (9p-log "Sending Rattach response"))
 
 ;; 9p-send-Rerror sends an Rerror message back to the client given a
 ;; server process and a tag (the tag is set by the client).
