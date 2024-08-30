@@ -3,22 +3,36 @@
 
 (defun 9p-recv-Tversion (proc buffer)
   "Handle a received Tversion message from the client."
-  (9p-log "Got Tversion message")
-  (9p-send-Rerror proc (9p-ensure-16bit #xFFFF) "Got Tversion message"))
+  (let* ((tag (9p-gbit16 buffer 5))
+         (msize (9p-gbit32 buffer 7))
+         (version-size (9p-gbit16 buffer 11))
+         (version-data (substring buffer 13 (+ 13 version-size))))
 
-(defun 9p-send-Rversion (proc tag error-message)
-  "Send a Rversion response to the client."
-  (9p-log "Sending Rversion response")
-  )
+    ;; debug: print info about the message
+    (9p-log "Got Tversion message")
+    (9p-log "\tMsize: %d" msize)
+    (9p-log "\tTag: %d" tag)
+    (9p-log "\tVersion-Size: %d" version-size)
+    (9p-log "\tVersion-Data: %s" version-data)
+    (9p-send-Rversion proc tag msize version-data)))
+    ;; (9p-send-Rerror proc tag "Got Tversion message")))
 
-(defun 9p-recv-Tattach (proc buffer)
-  "Handle a received Tattach message from the client."
-  (9p-log "Got Tattach message")
-  (9p-send-Rerror proc (9p-ensure-16bit #xFFFF) "Got Tattach message"))
+(defun 9p-send-Rversion (proc tag msize version)
+  "Send an Rversion message via PROC with TAG, MSIZE, and VERSION."
+  (let* ((version-length (length (encode-coding-string version 'utf-8)))
+         (total-length (+ 13 version-length)) 
+         (buffer (make-string total-length 0)))
 
-(defun 9p-send-Rattach (proc tag error-message)
-  "Send a Rattach respons to the client."
-    (9p-log "Sending Rattach response"))
+    (9p-pbit32 buffer 0 total-length)  
+    (9p-pbit8 buffer 4 (9p-message-type 'Rversion))
+    (9p-pbit16 buffer 5 tag)  
+    (9p-pbit32 buffer 7 msize)
+    (9p-pbit16 buffer 11 (length version))
+    (9p-pstring buffer 13 version) 
+
+    (9p-log "Sending Rversion message: %s" (9p-hex-dump buffer))
+    (process-send-string proc buffer)))
+
 
 ;; 9p-send-Rerror sends an Rerror message back to the client given a
 ;; server process and a tag (the tag is set by the client).
