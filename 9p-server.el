@@ -61,21 +61,11 @@ If SOCKET-NAME is not provided, use the default value."
         (progn
           (9p-log "Received 9P message: %d bytes" (length unibyte-buffer))
           (9p-log "Raw message: %s" (9p-hex-dump unibyte-buffer))
-
-          ;; verify required headers present
           (when (< (length unibyte-buffer) 9)
             (error "Message too short: %d bytes" (length unibyte-buffer)))
-
-          ;; unpack 9p message
           (let* ((size (9p-gbit32 unibyte-buffer 0))
                  (type (9p-gbit8 unibyte-buffer 4))
                  (tag (9p-gbit16 unibyte-buffer 5)))
-
-            (9p-log "Unpacked message headers - size: %d, type: %d, tag: %X" size type tag)
-
-            ;; handle incoming 9p messages by type. for now, pass the
-            ;; full message with all headers. might be able to optimize
-            ;; out some of the headers (may not be worth the squeeze).
             (cond
              ((= type (9p-message-type 'Tversion))
               (9p-recv-Tversion proc unibyte-buffer))
