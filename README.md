@@ -15,7 +15,9 @@ developed for the Plan 9 operating system.
 - `9p-start-server`: Starts the 9P server
 - `9p-stop-server`: Stops the 9P server
 - `9p-restart-server`: Restarts the 9P server
-- `9p-reload-and-restart`: Reloads the current buffer and restarts the server
 
+## Key Bindings
 
+9p.el currently sets `C-c 9` to `9p-restart-server` for developer 
+convenience.
 
