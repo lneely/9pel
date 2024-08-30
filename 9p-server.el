@@ -1,6 +1,8 @@
 (load-file "./pack.el")
 (load-file "./helpers.el")
 (load-file "./log.el")
+(load-file "./msg.el")
+(load-file "./handle.el")
 
 ;; 9p-server-socket-name defines the filesystem path to create the
 ;; unix socket for 9p communication.
