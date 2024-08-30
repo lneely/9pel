@@ -51,9 +51,10 @@
 ;; required. Consequently it does not provide unames or anames in the
 ;; message.
 ;;
-;; (Future: For multi-user systems, it would be worthwhile to
-;; implement basic protection such that only the user running the
-;; process may send and receive messages on the socket.)
+;; (Future: For now, 9pel uses a domain socket to communicate. There
+;; is no reason this could not be extended to support TCP. However,
+;; some basic protections should probably be in place for running on a
+;; network.)
 (defun 9p-send-Rauth (proc tag)
   "Respond with Rauth message."
   (let* ((total-length (+ 4 1 2 4))
