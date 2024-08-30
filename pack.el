@@ -44,3 +44,21 @@
       (setq result (logior result (ash (logand (aref string (+ offset i)) #xFF) (* 8 i)))))
     result))
 
+(defun 9p-gstring (buffer offset length)
+  "Get a string from BUFFER starting at OFFSET with LENGTH bytes."
+  (let ((end (+ offset length)))
+    (if (> end (length buffer))
+        (error "Buffer overflow in 9p-gstring")
+      (decode-coding-string (substring buffer offset end) 'utf-8))))
+
+(defun 9p-pstring (buffer offset string)
+  "Put STRING into BUFFER starting at OFFSET.
+Returns the number of bytes written."
+  (let* ((encoded-string (encode-coding-string string 'utf-8))
+         (string-length (length encoded-string)))
+    (if (> (+ offset string-length 2) (length buffer))
+        (error "Buffer overflow in 9p-pstring")
+      (9p-pbit16 buffer offset string-length)
+      (dotimes (i string-length)
+        (aset buffer (+ offset 2 i) (aref encoded-string i)))
+      (+ string-length 2))))

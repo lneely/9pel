@@ -63,12 +63,14 @@ If SOCKET-NAME is not provided, use the default value."
 
         ;; verify required headers present
         (when (< (length string) 9)
-          (error "Message too short"))
+          (error "Message too short: %d bytes" (length string)))
 
         ;; unpack 9p message
         (let* ((size (9p-gbit32 string 0))
                (type (9p-gbit8 string 4))
                (tag (9p-ensure-32bit (9p-gbit32 string 5))))
+
+          (9p-log "Unpacked message - size: %d, type: %d, tag: %X" size type tag)
 
           ;; handle incoming 9p messages by type
           (cond
@@ -77,11 +79,13 @@ If SOCKET-NAME is not provided, use the default value."
             (9p-handle-Tversion proc (substring string 4)))
            ((= type (9p-message-type 'Tattach))
             (9p-log "Got Tattach message")
-            (9p-handle-Tattach proc (substring string 4)))  ; Pass the buffer starting from the type byte
-           (t (error "Unsupported message type")))))
+            (9p-handle-Tattach proc (substring string 4)))
+           (t (error "Unsupported message type: %d" type))))
+        (9p-log "Message handling completed successfully"))
     (error
      (9p-log "Error in 9p-handle-message: %s" err)
      (9p-send-Rerror proc (9p-ensure-16bit #xFFFF) (error-message-string err)))))
+
 
 ;; 9p-restart-server restarts the 9p server.
 (defun 9p-restart-server ()
