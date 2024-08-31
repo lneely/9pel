@@ -255,6 +255,12 @@ If SOCKET-NAME is not provided, use the default value."
 
 ;; 9p-send-Rversion generates a Rversion response and writes it to the
 ;; socket.
+;;
+;; TODO: Rversion can simply respond with "9P2000" as the version. We
+;; will still use the msize we got from Tversion.
+;;
+;; Refer: https://9fans.github.io/plan9port/man/man4/9pserve.html
+;; See '-M' flag.
 (defun 9p-send-Rversion (proc tag msize version)
   "Send an Rversion message via PROC with TAG, MSIZE, and VERSION."
   (let* ((version-length (length (encode-coding-string version 'utf-8)))
@@ -285,26 +291,12 @@ If SOCKET-NAME is not provided, use the default value."
 ;; required. Consequently it does not provide unames or anames in the
 ;; message.
 ;;
-;; (Future: For now, 9pel uses a domain socket to communicate. There
-;; is no reason this could not be extended to support TCP. However,
-;; some basic protections should probably be in place for running on a
-;; network.)
+;; Refer: https://9fans.github.io/plan9port/man/man4/9pserve.html
+;; See '-n' flag for expected behavior.
 (defun 9p-send-Rauth (proc tag)
-  "Respond with Rauth message."
-  (let* ((total-length (+ 4 1 2 1 4 8))
-         (buffer (make-string total-length 0)))
+  "Respond with error message; no authentication."
+  (9p-send-Rerror proc tag "No authentication needed"))
 
-    (9p-pbit32 buffer 0 total-length)
-    (9p-pbit8 buffer 4 (9p-message-type 'Rauth))
-    (9p-pbit16 buffer 5 tag)
-
-    ;; empty qid
-    (9p-pbit8 buffer 7 0)
-    (9p-pbit32 buffer 8 0)
-    (9p-pbit64 buffer 12 0)
-
-    (9p-log "Sending Rauth message: %s" (9p-hex-dump buffer))
-    (process-send-string proc buffer)))
 
 ;; 9p-recv-Tattach is invoked when a Tattach message is read from the
 ;; socket.
