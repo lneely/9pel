@@ -19,6 +19,21 @@
     (Tmax . 128) (Topenfd . 98) (Ropenfd . 99))
   "Enumeration of 9P message types.")
 
+;; 9p-server-socket-name defines the filesystem path to create the
+;; unix socket for 9p communication.
+;; 
+;; TODO: Create socket in user's xdg runtime directory instead of
+;; /tmp. Otherwise, this will not work on multi-user systems.
+(defvar 9p-server-socket-name "/tmp/emacs-9p-server.sock"
+  "The name of the socket file used by the 9P server.")
+
+;; 9p-server-process is the process object for the running 9p server.
+(defvar 9p-server-process nil
+  "The process object of the running 9P server.")
+
+;; list of active fids
+(defvar 9p-active-fids '())
+
 ;; PBIT8 packs 1 byte into a buffer at the given offset with the given
 ;; value.
 (defun 9p-pbit8 (string offset value)
@@ -121,17 +136,24 @@ Returns the number of bytes written."
   "Return a hex dump of STRING."
   (mapconcat (lambda (c) (format "%02x" c)) string " "))
 
-;; 9p-server-socket-name defines the filesystem path to create the
-;; unix socket for 9p communication.
-;; 
-;; TODO: Create socket in user's xdg runtime directory instead of
-;; /tmp. Otherwise, this will not work on multi-user systems.
-(defvar 9p-server-socket-name "/tmp/emacs-9p-server.sock"
-  "The name of the socket file used by the 9P server.")
-
-;; 9p-server-process is the process object for the running 9p server.
-(defvar 9p-server-process nil
-  "The process object of the running 9P server.")
+;; 9p-qid is a helper function that generates a quantum identifier for
+;; a given file path. The QID is an 8-bit integer, followed by a
+;; 32-bit integer, followed by a 64-bit integer.
+(defun 9p-qid (file-path &optional empty)
+  "Generate a QID for the given FILE-PATH using 9p pbit functions and return as a list.
+If EMPTY is non-nil, generate an empty QID with default values."
+  (if empty
+      (list (9p-pbit8 0)   ; Type set to 0
+            (9p-pbit32 0)  ; Version set to 0
+            (9p-pbit64 0)) ; Path set to 0
+    (let* ((attributes (file-attributes file-path))
+           (type (if (eq (car attributes) t) 'QTDIR 'QTFILE))
+           (type-val (if (eq type 'QTDIR) 128 0))
+           (version (truncate (float-time (nth 5 attributes)))) ; 
+           (path (sxhash file-path))) ; 
+      (list type-val ; 0x80 for directory, 0x00 for file
+            version  ; modification time as a 32-bit integer
+            path)))) ; sxhash of file-path as a 64-bit integer
 
 ;; 9p-start-server starts the 9p server on a given socket.
 (defun 9p-start-server (&optional socket-name)
@@ -193,6 +215,8 @@ If SOCKET-NAME is not provided, use the default value."
               (9p-recv-Tauth proc unibyte-buffer))
              ((= type (9p-message-type 'Tattach))
               (9p-recv-Tattach proc unibyte-buffer))
+             ((= type (9p-message-type 'Twalk))
+              (9p-recv-Twalk proc unibyte-buffer))
              ((= type (9p-message-type 'Tclunk))
               (9p-recv-Tclunk proc unibyte-buffer))
              (t (error "Unsupported message type: %d" type))))
@@ -267,14 +291,14 @@ If SOCKET-NAME is not provided, use the default value."
 ;; network.)
 (defun 9p-send-Rauth (proc tag)
   "Respond with Rauth message."
-  (let* ((total-length (+ 4 1 2 13))
+  (let* ((total-length (+ 4 1 2 1 4 8))
          (buffer (make-string total-length 0)))
 
     (9p-pbit32 buffer 0 total-length)
     (9p-pbit8 buffer 4 (9p-message-type 'Rauth))
     (9p-pbit16 buffer 5 tag)
 
-    ;; empty qid 
+    ;; empty qid
     (9p-pbit8 buffer 7 0)
     (9p-pbit32 buffer 8 0)
     (9p-pbit64 buffer 12 0)
@@ -282,13 +306,47 @@ If SOCKET-NAME is not provided, use the default value."
     (9p-log "Sending Rauth message: %s" (9p-hex-dump buffer))
     (process-send-string proc buffer)))
 
-;; TODO: implement
+;; 9p-recv-Tattach is invoked when a Tattach message is read from the
+;; socket.
 (defun 9p-recv-Tattach (proc buffer)
-  (let* ((tag (9p-gbit16 buffer 5)))
-    (9p-send-Rerror proc tag "Got Tattach")))
+  (let* ((tag (9p-gbit16 buffer 5))
+         (fid (9p-gbit32 buffer 7))
+         (afid (9p-gbit32 buffer 11))
+         (uname-length (9p-gbit16 buffer 15))
+         (uname-data (9p-gstring buffer 17 uname-length))
+         (aname-length (9p-gbit16 buffer (+ 17 uname-length)))
+         (aname-data (9p-gstring buffer (+ 19 uname-length) aname-length)))
+
+    (9p-send-Rattach tag fid afid uname-data aname-data)))
 
 ;; TODO: implement
-(defun 9p-send-Rattach ())
+(defun 9p-send-Rattach (tag fid afid uname aname)
+  (let* ((total-length (+ 4 1 2 1 4 8))
+         (buffer (make-string total-length 0)))
+    (9p-pbit32 buffer 0 total-length)
+    (9p-pbit8 buffer 4 (9p-message-type 'Rattach))
+    (9p-pbit16 buffer 5 tag)
+
+    ;; TODO: qid
+    (let ((qid (9p-qid "/")))
+      (9p-log "QID: Type %s, Version: %d, Path: %d"
+               (nth 0 qid)  
+               (nth 1 qid)  
+               (nth 2 qid))
+      (9p-pbit8 buffer 7 (nth 0 qid))
+      (9p-pbit32 buffer 8 (nth 1 qid))
+      (9p-pbit64 buffer 12 (nth 2 qid)))
+
+    (9p-log "Sending Rattach message: %s" (9p-hex-dump buffer))
+    (process-send-string proc buffer)))
+
+;; TODO: implement
+(defun 9p-recv-Twalk (proc buffer)
+  (let* ((tag (9p-gbit16 buffer 5)))
+    (9p-send-Rerror proc tag "Got Twalk")))
+
+;; TODO: implement
+(defun 9p-send-Rwalk (proc buffer))
 
 ;; TODO: implement
 (defun 9p-recv-Tclunk (proc buffer)
@@ -297,7 +355,7 @@ If SOCKET-NAME is not provided, use the default value."
 
 ;; TODO: implement
 (defun 9p-send-Rclunk (proc buffer))
-    
+
 ;; 9p-send-Rerror sends an Rerror message back to the client given a
 ;; server process and a tag (the tag is set by the client).
 (defun 9p-send-Rerror (proc tag error-message)
