@@ -1,10 +1,15 @@
 ;; 9P-NOTAG is a dummy tag value for use in special situations.
-(defconst 9P-NOTAG #xFFFF
-  "Dummy tag value, equivalent to (ushort)~0U in C.")
+(defconst 9P-NOTAG #xFFFF)
 
 ;; 9P-NOFID is a dummy fid value.
-(defconst 9P-NOFID #xFFFFFFFF
-  "Dummy fid value, equivalent to (u32int)~0U in C.")
+(defconst 9P-NOFID #xFFFFFFFF)
+
+;; 9P-QTDIR identifies that a quantum identifier is for a directory.
+(defconst 9P-QTDIR #x80)
+
+;; 9P-QTFILE identifies that a quantum identifier is for a regular
+;; file.
+(defconst 9P-QTFILE #x00)
 
 ;; 9P-MESSAGE-TYPES enumerates the T- and R-messages defined in the
 ;; protocol.
@@ -18,6 +23,10 @@
     (Tstat . 124) (Rstat . 125) (Twstat . 126) (Rwstat . 127)
     (Tmax . 128) (Topenfd . 98) (Ropenfd . 99))
   "Enumeration of 9P message types.")
+
+;; 9p-root-namespace defines the virtual root of the filesystem we are
+;; serving.
+(defvar 9p-root-namespace '("/b/"))
 
 ;; 9p-server-socket-name defines the filesystem path to create the
 ;; unix socket for 9p communication.
@@ -114,6 +123,23 @@ Returns the number of bytes written."
           (aset buffer (+ offset i) (aref encoded-string i)))
         string-length))))
 
+;; 9p-in-namespace checks that a given path is in the allowed
+;; namespace for our 9p server.
+(defun 9p-in-namespace-p (path)
+  "Check if the given path is within the allowed namespace."
+  (or (string= path "/")
+      (cl-some (lambda (allowed-path)
+                 (string-prefix-p allowed-path path))
+               9p-root-namespace)))
+
+;; 9p-rewrite-path rewrites a path sent by the 9p client so that it is
+;; always in the allowed namespace.
+(defun 9p-rewrite-path (path)
+  "Rewrite the path to ensure it stays within the allowed namespace."
+  (if (9p-in-namespace-p path)
+      path
+    (concat "/b" path)))
+
 ;; 9p-message-type is a helper function that returns an integer
 ;; constant for a given message type name, e.g., 'Rerror returns 107.
 (defun 9p-message-type (type)
@@ -139,21 +165,14 @@ Returns the number of bytes written."
 ;; 9p-qid is a helper function that generates a quantum identifier for
 ;; a given file path. The QID is an 8-bit integer, followed by a
 ;; 32-bit integer, followed by a 64-bit integer.
-(defun 9p-qid (file-path &optional empty)
-  "Generate a QID for the given FILE-PATH using 9p pbit functions and return as a list.
-If EMPTY is non-nil, generate an empty QID with default values."
-  (if empty
-      (list (9p-pbit8 0)   ; Type set to 0
-            (9p-pbit32 0)  ; Version set to 0
-            (9p-pbit64 0)) ; Path set to 0
-    (let* ((attributes (file-attributes file-path))
-           (type (if (eq (car attributes) t) 'QTDIR 'QTFILE))
-           (type-val (if (eq type 'QTDIR) 128 0))
-           (version (truncate (float-time (nth 5 attributes)))) ; 
-           (path (sxhash file-path))) ; 
-      (list type-val ; 0x80 for directory, 0x00 for file
-            version  ; modification time as a 32-bit integer
-            path)))) ; sxhash of file-path as a 64-bit integer
+(defun 9p-qid (path)
+  "Generate a QID for the given path."
+  (let* ((attrs (file-attributes path))
+         (type (if (eq (car attrs) t) 9P-QTDIR 9P-QTFILE))
+         (version (float-time (nth 5 attrs)))  ; Use mtime as version
+         (path-id (sxhash path)))
+    (list type version path-id)))
+
 
 ;; 9p-start-server starts the 9p server on a given socket.
 (defun 9p-start-server (&optional socket-name)
