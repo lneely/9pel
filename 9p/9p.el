@@ -24,6 +24,11 @@
     (Tmax . 128) (Topenfd . 98) (Ropenfd . 99))
   "Enumeration of 9P message types.")
 
+;; 9p-next-fid tracks the next fid to generate, and is incremented
+;; whenever 9p-fid-generate is called.
+(defvar 9p-next-fid 0
+  "The next FID to be assigned.")
+
 ;; 9p-root-namespace defines the virtual root of the filesystem we are
 ;; serving.
 (defvar 9p-root-namespace '("/b/"))
@@ -40,8 +45,10 @@
 (defvar 9p-server-process nil
   "The process object of the running 9P server.")
 
-;; list of active fids
-(defvar 9p-active-fids '())
+;; 9p-active-fids contains all active fids and maps them to their
+;; corresonding paths in our vfs.
+(defvar 9p-active-fids (make-hash-table :test 'equal)
+  "Hash table to store FID to path mappings.")
 
 ;; PBIT8 packs 1 byte into a buffer at the given offset with the given
 ;; value.
@@ -123,6 +130,37 @@ Returns the number of bytes written."
           (aset buffer (+ offset i) (aref encoded-string i)))
         string-length))))
 
+;; 9p-fid-generate returns a new unique fid, and increments the
+;; 9p-next-fid variable. It wraps to zero when we reach the uint32
+;; maximum value.
+(defun 9p-fid-generate ()
+  "Generate a new, unique FID in a thread-safe manner."
+  (mutex-lock 9p-fid-lock)
+  (unwind-protect
+      (let ((fid 9p-next-fid))
+        (setq 9p-next-fid (logand (1+ 9p-next-fid) #xFFFFFFFE))
+        (if (= fid #xFFFFFFFF)
+            (9p-fid-generate)  ; Recursively get the next FID if we hit the reserved value
+          fid))
+    (mutex-unlock 9p-fid-lock)))
+
+;; 9p-fid-set-path associates a given fid to a given path in the vfs
+;; and adds it to our active fids.
+(defun 9p-fid-set-path (fid path)
+  "Associate a path with a FID."
+  (puthash fid path 9p-active-fids))
+
+;; 9p-fid-get-path retrieves the fid for a given path in the vfs from
+;; our active fids.
+(defun 9p-fid-get-path (fid)
+  "Get the path associated with a FID."
+  (gethash fid 9p-active-fids))
+
+;; 9p-fid-remove removes an fid entry from the table.
+(defun 9p-fid-remove (fid)
+  "Remove a FID from the table."
+  (remhash fid 9p-active-fids))
+
 ;; 9p-in-namespace checks that a given path is in the allowed
 ;; namespace for our 9p server.
 (defun 9p-in-namespace-p (path)
@@ -144,6 +182,58 @@ Returns the number of bytes written."
 ;; constant for a given message type name, e.g., 'Rerror returns 107.
 (defun 9p-message-type (type)
   (cdr (assq type 9P-MESSAGE-TYPES)))
+
+;; TODO: 9p-handle-wstat is a helper function for Twstat 
+;; implement this)
+(defun 9p-handle-wstat (fid stat)
+  "Handle wstat operation for the given FID and stat structure."
+  (let ((path (9p-get-path fid)))
+    (if (9p-in-namespace-p path)
+        (let ((real-path (9p-rewrite-path path)))
+          ;; Implement the actual wstat operation here
+          ;; This might include changing file permissions, timestamps, etc.
+          ;; Be careful to only allow changes that make sense for your virtual filesystem
+          (error "Wstat operation not fully implemented"))
+      (error "Path not in allowed namespace"))))
+
+;; 9p-handle-walk walks the given path in the allowed namespace.
+(defun 9p-handle-walk (fid newfid names)
+  "Handle the 9P walk operation."
+  (let ((path (9p-get-path fid)))
+    (dolist (name names)
+      (setq path (expand-file-name name path))
+      (setq path (9p-rewrite-path path))
+      (unless (file-exists-p path)
+        (error "File not found")))
+    (9p-set-path newfid path)
+    (length names)))
+
+(defun 9p-handle-read (fid offset count)
+  "Handle the 9P read operation."
+  (let ((path (9p-get-path fid)))
+    (if (string= path "/")
+        (let ((root-contents (mapconcat #'identity (9p-list-root) "\n")))
+          (substring root-contents offset (min (length root-contents) (+ offset count))))
+      (with-temp-buffer
+        (insert-file-contents (9p-rewrite-path path))
+        (buffer-substring (+ (point-min) offset)
+                          (min (+ (point-min) offset count) (point-max)))))))
+
+(defun 9p-handle-stat (fid)
+  "Handle the 9P stat operation."
+  (let ((path (9p-get-path fid)))
+    (if (string= path "/")
+        (list :type 'directory
+              :name "/"
+              :length 0
+              :mode #o040755)
+      (let ((attrs (file-attributes (9p-rewrite-path path))))
+        (list :type (if (eq (car attrs) t) 'directory 'file)
+              :name (file-name-nondirectory path)
+              :length (nth 7 attrs)
+              :mode (file-modes (9p-rewrite-path path)))))))
+
+
 
 ;; 9p-log is a helper function that writes log messages to the *9P
 ;; Server Log* buffer.
@@ -341,9 +431,9 @@ If SOCKET-NAME is not provided, use the default value."
     ;; TODO: qid
     (let ((qid (9p-qid "/")))
       (9p-log "QID: Type %s, Version: %d, Path: %d"
-               (nth 0 qid)  
-               (nth 1 qid)  
-               (nth 2 qid))
+              (nth 0 qid)  
+              (nth 1 qid)  
+              (nth 2 qid))
       (9p-pbit8 buffer 7 (nth 0 qid))
       (9p-pbit32 buffer 8 (nth 1 qid))
       (9p-pbit64 buffer 12 (nth 2 qid)))
@@ -351,13 +441,39 @@ If SOCKET-NAME is not provided, use the default value."
     (9p-log "Sending Rattach message: %s" (9p-hex-dump buffer))
     (process-send-string proc buffer)))
 
-;; TODO: implement
-(defun 9p-recv-Twalk (proc buffer)
-  (let* ((tag (9p-gbit16 buffer 5)))
-    (9p-send-Rerror proc tag "Got Twalk")))
+(defun 9p-recv-Twalk (tag fid newfid nwname &rest wnames)
+  "Handle 9P Twalk message."
+  (condition-case err
+      (let ((nwqids (9p-handle-walk fid newfid wnames)))
+        (9p-send-Rwalk tag nwqids))
+    (error
+     (9p-send-Rerror tag (error-message-string err)))))
 
-;; TODO: implement
-(defun 9p-send-Rwalk (proc buffer))
+(defun 9p-recv-Tread (tag fid offset count)
+  "Handle 9P Tread message."
+  (condition-case err
+      (let* ((data (9p-handle-read fid offset count))
+             (count (length data)))
+        (9p-send-Rread tag count data))
+    (error
+     (9p-send-Rerror tag (error-message-string err)))))
+
+(defun 9p-recv-Tstat (tag fid)
+  "Handle 9P Tstat message."
+  (condition-case err
+      (let ((stat (9p-handle-stat fid)))
+        (9p-send-Rstat tag stat))
+    (error
+     (9p-send-Rerror tag (error-message-string err)))))
+
+(defun 9p-recv-Twstat (tag fid stat)
+  "Handle 9P Twstat message."
+  (condition-case err
+      (progn
+        (9p-handle-wstat fid stat)
+        (9p-send-Rwstat tag))
+    (error
+     (9p-send-Rerror tag (error-message-string err)))))
 
 ;; TODO: implement
 (defun 9p-recv-Tclunk (proc buffer)
