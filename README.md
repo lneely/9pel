@@ -55,3 +55,8 @@ with Emacs. The implementation is currently under development.
 - Currently only supports registering a fileops handler for individual
   directories; the handler registration does not propagate to
   subdirectories.
+
+## Testing
+
+9pel uses my custom testing framework, [LispyMcTestFace](https://github.com/lneely/lmtf) 
+for unit and integration testing. Give it a try, you might like it.
