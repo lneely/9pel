@@ -1,11 +1,9 @@
-(add-to-list 'load-path "..")
-
-(require 'ert)
-
 ;; =====
 ;; unit tests: core vfs functionality
 ;; =====
+(add-to-list 'load-path "../vfs")
 
+(require 'ert)
 (require 'vfs)
 
 (ert-deftest test-vfs-path-p ()
@@ -107,4 +105,4 @@
     ;; Test a file name that does not match any registered directories
     (should-not (vfs-find-matching-dir "/unrelated/file.txt"))))
 
-(ert-run-tests-interactively t)
+

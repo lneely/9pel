@@ -263,11 +263,11 @@ Returns the number of bytes written."
          (path-id (sxhash path)))
     (list type version path-id)))
 
-
 ;; 9p-start-server starts the 9p server on a given socket.
 (defun 9p-start-server (&optional socket-name)
   "Start the 9P server on SOCKET-NAME.
-If SOCKET-NAME is not provided, use the default value."
+If SOCKET-NAME is not provided, use the default value.
+Sets the global `9p-server-process` and returns the server process object."
   (interactive)
   (when 9p-server-process
     (error "9P server is already running. Stop it first with 9p-stop-server"))
@@ -284,19 +284,24 @@ If SOCKET-NAME is not provided, use the default value."
          :service 9p-server-socket-name
          :filter #'9p-handle-message
          :sentinel #'9p-server-sentinel))
-  (9p-log "9P server started on Unix domain socket: %s" 9p-server-socket-name))
+  (9p-log "9P server started on Unix domain socket: %s" 9p-server-socket-name)
+  9p-server-process)
 
 ;; 9p-stop-server stops the running 9p server and removes the socket file.
-(defun 9p-stop-server ()
-  "Stop the 9P server and remove the socket file."
+(defun 9p-stop-server (&optional process)
+  "Stop the 9P server and remove the socket file.
+If PROCESS is provided, stop that specific server process.
+Otherwise, stop the server associated with `9p-server-process`."
   (interactive)
-  (when 9p-server-process
-    (delete-process 9p-server-process)
-    (setq 9p-server-process nil)
-    (when (file-exists-p 9p-server-socket-name)
-      (delete-file 9p-server-socket-name)
-      (9p-log "Socket file removed: %s" 9p-server-socket-name))
-    (9p-log "9P server stopped")))
+  (let ((server-process (or process 9p-server-process)))
+    (when server-process
+      (delete-process server-process)
+      (when (eq server-process 9p-server-process)
+        (setq 9p-server-process nil))
+      (when (file-exists-p 9p-server-socket-name)
+        (delete-file 9p-server-socket-name)
+        (9p-log "Socket file removed: %s" 9p-server-socket-name))
+      (9p-log "9P server stopped"))))
 
 ;; 9p-server-sentinel handles status changes.
 (defun 9p-server-sentinel (proc event)
@@ -307,6 +312,7 @@ If SOCKET-NAME is not provided, use the default value."
 ;; 9p-server-socket.
 (defun 9p-handle-message (proc buffer)
   "Process incoming data from the 9P client."
+  (message "In 9p server message handler")
   (let ((unibyte-buffer (string-as-unibyte buffer)))
     (condition-case err
         (progn
@@ -317,6 +323,7 @@ If SOCKET-NAME is not provided, use the default value."
           (let* ((size (9p-gbit32 unibyte-buffer 0))
                  (type (9p-gbit8 unibyte-buffer 4))
                  (tag (9p-gbit16 unibyte-buffer 5)))
+	    (message "Message type: %d" type)
             (cond
              ((= type (9p-message-type 'Tversion))
               (9p-recv-Tversion proc unibyte-buffer))
@@ -349,6 +356,7 @@ If SOCKET-NAME is not provided, use the default value."
 ;; the socket. A Tversion expects an Rversion response.
 (defun 9p-recv-Tversion (proc buffer)
   "Handle a received Tversion message from the client."
+  (message "9P server received Tversion")
   (let* ((tag (9p-gbit16 buffer 5))
          (msize (9p-gbit32 buffer 7))
          (version-size (9p-gbit16 buffer 11))
@@ -386,14 +394,41 @@ If SOCKET-NAME is not provided, use the default value."
     (9p-log "Sending Rversion message: %s" (9p-hex-dump buffer))
     (process-send-string proc buffer)))
 
-;; 9p-recv-Tauth is invoked when a Tauth message is received on the
-;; socket. It responds with NOFID to indicate to the client that no
-;; authentication is required.
-(defun 9p-recv-Tauth (proc buffer)
-  "Handle a received Tauth message from the client."
-  (9p-log "Got Tauth message")
-  (let* ((tag (9p-gbit16 buffer 5)))
-    (9p-send-Rauth proc tag)))
+(defun 9p-send-Rversion (proc tag msize version)
+  "Send an Rversion message via PROC with TAG, MSIZE, and VERSION."
+  (let* ((version-length (length (encode-coding-string version 'utf-8)))
+         (total-length (+ 4 1 2 4 2 version-length))
+         (buffer (make-string total-length 0)))
+
+    (9p-pbit32 buffer 0 total-length)  
+    (9p-pbit8 buffer 4 (9p-message-type 'Rversion))
+    (9p-pbit16 buffer 5 tag)  
+    (9p-pbit32 buffer 7 msize)
+    (9p-pbit16 buffer 11 (length version))
+    (9p-pstring buffer 13 version) 
+
+    (9p-log "Preparing to send Rversion message:")
+    (9p-log "  Total length: %d" total-length)
+    (9p-log "  Tag: %d" tag)
+    (9p-log "  Msize: %d" msize)
+    (9p-log "  Version: %s" version)
+    (9p-log "  Message content: %s" (9p-hex-dump buffer))
+
+    (condition-case err
+        (progn
+          (process-send-string proc buffer)
+          (9p-log "Rversion message sent successfully"))
+      (error
+       (9p-log "Error sending Rversion message: %s" (error-message-string err))))))
+
+;; ;; 9p-recv-Tauth is invoked when a Tauth message is received on the
+;; ;; socket. It responds with NOFID to indicate to the client that no
+;; ;; authentication is required.
+;; (defun 9p-recv-Tauth (proc buffer)
+;;   "Handle a received Tauth message from the client."
+;;   (9p-log "Got Tauth message")
+;;   (let* ((tag (9p-gbit16 buffer 5)))
+;;     (9p-send-Rauth proc tag)))
 
 ;; 9p-send-Rauth responds to a Tauth message with Rauth. The Rauth
 ;; returns NOFID, indicating to the client that no authentication is
@@ -505,3 +540,6 @@ If SOCKET-NAME is not provided, use the default value."
       (error
        (9p-log "Error sending response: %s" (error-message-string err))))
     (9p-log "Rerror sent successfully")))
+
+(provide '9p)
+
