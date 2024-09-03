@@ -453,10 +453,10 @@ Otherwise, stop the server associated with `9p-server-process`."
          (aname-length (9p-gbit16 buffer (+ 17 uname-length)))
          (aname-data (9p-gstring buffer (+ 19 uname-length) aname-length)))
 
-    (9p-send-Rattach tag fid afid uname-data aname-data)))
+    (9p-send-Rattach proc tag fid afid uname-data aname-data)))
 
 ;; TODO: implement
-(defun 9p-send-Rattach (tag fid afid uname aname)
+(defun 9p-send-Rattach (proc tag fid afid uname aname)
   (let* ((total-length (+ 4 1 2 1 4 8))
          (buffer (make-string total-length 0)))
     (9p-pbit32 buffer 0 total-length)
@@ -484,7 +484,7 @@ Otherwise, stop the server associated with `9p-server-process`."
     (error
      (9p-send-Rerror tag (error-message-string err)))))
 
-(defun 9p-recv-Tread (tag fid offset count)
+(defun 9p-recv-Tread (proc tag fid offset count)
   "Handle 9P Tread message."
   (condition-case err
       (let* ((data (9p-handle-read fid offset count))
@@ -493,7 +493,7 @@ Otherwise, stop the server associated with `9p-server-process`."
     (error
      (9p-send-Rerror tag (error-message-string err)))))
 
-(defun 9p-recv-Tstat (tag fid)
+(defun 9p-recv-Tstat (proc tag fid)
   "Handle 9P Tstat message."
   (condition-case err
       (let ((stat (9p-handle-stat fid)))
@@ -501,7 +501,7 @@ Otherwise, stop the server associated with `9p-server-process`."
     (error
      (9p-send-Rerror tag (error-message-string err)))))
 
-(defun 9p-recv-Twstat (tag fid stat)
+(defun 9p-recv-Twstat (proc tag fid stat)
   "Handle 9P Twstat message."
   (condition-case err
       (progn

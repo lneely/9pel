@@ -2,6 +2,32 @@
 
 (provide '9p-client)
 
+(defvar 9p-client-process nil
+  "The 9P client process.")
+
+(defun 9p-start-client (&optional socket-name)
+  "Start the 9P client connecting to SOCKET-NAME.
+If SOCKET-NAME is not provided, use the default value.
+Sets the global `9p-client-process` and returns the client process object."
+  (let ((socket-path (or socket-name 9p-server-socket-name "/tmp/emacs-9p-server.sock")))
+    (unless (file-exists-p socket-path)
+      (error "9P server socket does not exist: %s" socket-path))
+    (setq 9p-client-process
+          (make-network-process
+           :name "9P Client"
+           :family 'local
+           :service socket-path
+           :filter #'9p-client-filter))
+    (9p-log "9P client connected to Unix domain socket: %s" socket-path)
+    9p-client-process))
+
+(defun 9p-stop-client ()
+  "Stop the 9P client process."
+  (when 9p-client-process
+    (delete-process 9p-client-process)
+    (setq 9p-client-process nil)
+    (9p-log "9P client stopped")))
+
 (defun 9p-send-Tversion (proc msize version tag)
   "Send a Tversion message to the server."
   (let* ((version-bytes (string-to-unibyte version))
@@ -91,3 +117,15 @@
         ;; Unknown message type
         (list :type 'unknown :size size :tag tag)))))
 
+(defun 9p-read-from-socket (process)
+  "Read data from the socket associated with PROCESS.
+Returns the data as a string, or nil if no data is available."
+  (let ((data (process-get process :received-data)))
+    (when data
+      (process-put process :received-data nil))
+    data))
+
+(defun 9p-client-filter (process output)
+  "Filter function for the 9P client process."
+  (let ((current-data (or (process-get process :received-data) "")))
+    (process-put process :received-data (concat current-data output))))
