@@ -44,7 +44,7 @@ with Emacs. The implementation is currently under development.
 ```
 ;; a functioning example
 (vfs-register-directory "/b/")
-(vfs-register-fileop "/b/" 'directory-files 'vfs-op-b-directoryfiles)
+(vfs-register-fileop "/b/" 'directory-files 'vfs-op-b-directory-files)
 
 ;; returns a list of open buffers
 (directory-files "/b/")
