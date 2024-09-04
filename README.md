@@ -7,7 +7,6 @@ developed for the Plan 9 operating system.
 ## Features
 
 - Server can be started, stopped, and restarted from within Emacs
-- Supports reloading of server code without stopping the server
 - Work in progress: Implementation of the 9P2000 protocol
 - Work in progress: Virtual filesystem for RPC functionality
 - Work in progress: vfs and 9p server integration.
