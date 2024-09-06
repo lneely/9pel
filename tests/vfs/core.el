@@ -1,7 +1,7 @@
 ;; =====
 ;; unit tests: core vfs functionality
 ;; =====
-(add-to-list 'load-path "../vfs")
+(add-to-list 'load-path "../../vfs")
 
 (require 'ert)
 (require 'vfs)

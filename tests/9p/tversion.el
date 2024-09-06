@@ -7,7 +7,6 @@
 ;; mock server-client interaction to test transmit / respond for
 ;; version.
 (defun test-9p-tversion-integration ()
-  "Integration test for 9p-send-Tversion and 9p-recv-Tversion using client and server processes."
   (let* ((test-msize 8192)
          (test-version "9P2000")
          (test-tag 42)
@@ -36,10 +35,10 @@
                        (version-len (9p-gbit16 buffer 11))
                        (version (9p-gstring buffer 13 version-len)))
                   (should (= type (9p-message-type 'Rversion)))
-                  (should (= tag 42))
-                  (should (= msize 8192))
-                  (should (= version-len 6))
-                  (should (string= version "9P2000"))
+                  (should (= tag test-tag))
+                  (should (= msize test-msize))
+                  (should (= version-len (length test-version)))
+                  (should (string= version test-version))
                   (setq response-received t))))))
       (9p-stop-client)
       (9p-stop-server))))

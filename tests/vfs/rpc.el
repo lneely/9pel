@@ -2,7 +2,7 @@
 ;; integration tests: rpc calls
 ;; =====
 
-(add-to-list 'load-path "../vfs")
+(add-to-list 'load-path "../../vfs")
 (require 'vfs-rpc)
 
 ;; ensure that vfs-rpc-list-buffers returns the expected list of

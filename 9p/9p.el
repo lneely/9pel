@@ -421,14 +421,14 @@ Otherwise, stop the server associated with `9p-server-process`."
       (error
        (9p-log "Error sending Rversion message: %s" (error-message-string err))))))
 
-;; ;; 9p-recv-Tauth is invoked when a Tauth message is received on the
-;; ;; socket. It responds with NOFID to indicate to the client that no
-;; ;; authentication is required.
-;; (defun 9p-recv-Tauth (proc buffer)
-;;   "Handle a received Tauth message from the client."
-;;   (9p-log "Got Tauth message")
-;;   (let* ((tag (9p-gbit16 buffer 5)))
-;;     (9p-send-Rauth proc tag)))
+;; 9p-recv-Tauth is invoked when a Tauth message is received on the
+;; socket. It responds with NOFID to indicate to the client that no
+;; authentication is required.
+(defun 9p-recv-Tauth (proc buffer)
+  "Handle a received Tauth message from the client."
+  (9p-log "Got Tauth message")
+  (let* ((tag (9p-gbit16 buffer 5)))
+    (9p-send-Rauth proc tag)))
 
 ;; 9p-send-Rauth responds to a Tauth message with Rauth. The Rauth
 ;; returns NOFID, indicating to the client that no authentication is
