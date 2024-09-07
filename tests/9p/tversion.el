@@ -1,4 +1,13 @@
-(add-to-list 'load-path "../9p")
+;;; tversion.el -- 9p version message exchange tests
+
+;;; Commentary:
+;;;
+;;; Integration tests to verify 9p version message exchange functions
+;;; properly.
+
+;;; Code:
+
+(add-to-list 'load-path "../../9p")
 
 (require 'ert)
 (require '9p)
@@ -6,7 +15,8 @@
 
 ;; mock server-client interaction to test transmit / respond for
 ;; version.
-(defun test-9p-tversion-integration ()
+(defun test-9p-version-exchange ()
+	"Test version message exchange."
   (let* ((test-msize 8192)
          (test-version "9P2000")
          (test-tag 42)
@@ -17,7 +27,7 @@
     (9p-start-server)
     (unwind-protect
         (progn
-          (should (and (boundp '9p-server-process) 
+          (should (and (boundp '9p-server-process)
                        (processp 9p-server-process)))
           (setq 9p-client-process (9p-start-client))
           (should (processp 9p-client-process))
@@ -43,4 +53,4 @@
       (9p-stop-client)
       (9p-stop-server))))
 
-
+;;; tversion.el ends here

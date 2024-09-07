@@ -1,13 +1,18 @@
-;; =====
-;; unit tests: core vfs functionality
-;; =====
-(add-to-list 'load-path "../../vfs")
+;;; core.el -- tests for core vfs functionality.
+
+;;; Commentary:
+;;;
+;;; Integration tests to verify the core functionality of vfs.
+
+;;; Code:
+
+(add-to-list 'load-path "../../vfs/")
 
 (require 'ert)
 (require 'vfs)
 
 (ert-deftest test-vfs-path-p ()
-  (let ((vfs-fileop-registry nil))  
+  (let ((vfs-fileop-registry nil))
     (vfs-register-directory "/b/")
     (vfs-register-directory "/test/")
     (vfs-register-fileop "/b/" 'directory-files 'vfs-op-b-directory-files)
@@ -17,7 +22,7 @@
     ;; Now perform the test assertions
     (should (vfs-path-p "/b/"))         ;; Directory registered
     (should (vfs-path-p "/test/"))
-    (should (vfs-path-p "/b/subdir1/")) ;; Subdirectory       
+    (should (vfs-path-p "/b/subdir1/")) ;; Subdirectory
     (should-not (vfs-path-p "/b"))      ;; Dirs require trailing slash
     (should-not (vfs-path-p "/bogus"))  ;; Not registered path
     (should-not (vfs-path-p ""))        ;; Edge case: empty string
@@ -104,5 +109,10 @@
 
     ;; Test a file name that does not match any registered directories
     (should-not (vfs-find-matching-dir "/unrelated/file.txt"))))
+
+(provide 'core)
+
+;;; core.el ends here
+
 
 

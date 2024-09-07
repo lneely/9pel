@@ -1,8 +1,14 @@
-;; =====
-;; integration tests: rpc calls
-;; =====
+;;; rpc.el -- tests for vfs rpc calls.
+
+;;; Commentary:
+;;;
+;;; Integration tests to verify the rpc operations in vfs function as
+;;; expected.
+
+;;; Code:
 
 (add-to-list 'load-path "../../vfs")
+
 (require 'vfs-rpc)
 
 ;; ensure that vfs-rpc-list-buffers returns the expected list of
@@ -107,9 +113,11 @@
           (should (equal (vfs-rpc-read-buffer test-buffer-name) ""))
 
           ;; Test with non-existent buffer
-          (should-error (vfs-rpc-read-buffer "non-existent-buffer") 
+          (should-error (vfs-rpc-read-buffer "non-existent-buffer")
                         :type 'error))
 
       ;; Clean up
       (when (get-buffer test-buffer-name)
         (kill-buffer test-buffer-name)))))
+
+;;; rpc.el ends here
