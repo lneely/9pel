@@ -8,29 +8,10 @@
 (add-to-list 'load-path ".")
 (require '9p-util)
 
-;;; Constants:
-
 (defconst 9P-NOTAG #xFFFF)
 (defconst 9P-NOFID #xFFFFFFFF)
 (defconst 9P-QTDIR #x80)
 (defconst 9P-QTFILE #x00)
-
-(defconst 9P-MESSAGE-TYPES
-  '((Tversion . 100) (Rversion . 101) (Tauth . 102) (Rauth . 103)
-    (Tattach . 104) (Rattach . 105) (Terror . 106) (Rerror . 107)
-    (Tflush . 108) (Rflush . 109) (Twalk . 110) (Rwalk . 111)
-    (Topen . 112) (Ropen . 113) (Tcreate . 114) (Rcreate . 115)
-    (Tread . 116) (Rread . 117) (Twrite . 118) (Rwrite . 119)
-    (Tclunk . 120) (Rclunk . 121) (Tremove . 122) (Rremove . 123)
-    (Tstat . 124) (Rstat . 125) (Twstat . 126) (Rwstat . 127)
-    (Tmax . 128) (Topenfd . 98) (Ropenfd . 99))
-  "Enumeration of 9P message types.")
-
-;;; Helper functions:
-
-(defun 9p-message-type (type)
-	"Return the integer value for TYPE."
-  (cdr (assq type 9P-MESSAGE-TYPES)))
 
 ;;; Quantum identifier management:
 
@@ -41,6 +22,24 @@
          (version (float-time (nth 5 attrs)))
          (path-id (sxhash path)))
     (list type version path-id)))
+
+;;; Virtual Filesystem Integration:
+
+(defvar 9p-root-namespace "/b/"
+	"The 9P server root namespace points to a vfs location.")
+
+(defun 9p-in-namespace-p (path)
+  "Check if the given PATH is within the allowed namespace."
+  (or (string= path "/")
+      (cl-some (lambda (allowed-path)
+                 (string-prefix-p allowed-path path))
+               9p-root-namespace)))
+
+(defun 9p-rewrite-path (path)
+  "Rewrite the PATH to ensure it stays within the allowed namespace."
+  (if (9p-in-namespace-p path)
+      path
+    (concat "/b" path)))
 
 ;;; Process management:
 
@@ -236,8 +235,7 @@ Send via the server process PROC."
     (9p-pbit8 buffer 4 (9p-message-type 'Rattach))
     (9p-pbit16 buffer 5 tag)
 
-    ;; TODO: qid for vfs root
-    (let ((qid (9p-qid "/")))
+    (let ((qid (9p-qid 9p-root-namespace)))
       (9p-log "QID: Type %s, Version: %d, Path: %d"
               (nth 0 qid)
               (nth 1 qid)
@@ -292,24 +290,6 @@ Send message using server process PROC."
       (error
        (9p-log "Error sending response: %s" (error-message-string err))))
     (9p-log "Rerror sent successfully")))
-
-;;; Virtual Filesystem Integration:
-
-(defvar 9p-root-namespace "/b/"
-	"The 9P server root namespace points to a vfs location.")
-
-(defun 9p-in-namespace-p (path)
-  "Check if the given PATH is within the allowed namespace."
-  (or (string= path "/")
-      (cl-some (lambda (allowed-path)
-                 (string-prefix-p allowed-path path))
-               9p-root-namespace)))
-
-(defun 9p-rewrite-path (path)
-  "Rewrite the PATH to ensure it stays within the allowed namespace."
-  (if (9p-in-namespace-p path)
-      path
-    (concat "/b" path)))
 
 
 (provide '9p-server)

@@ -25,7 +25,7 @@ Sets the global 9p-client-process."
 					 :name "9P Client"
 					 :family 'local
 					 :service socket-path
-					 :filter #'9p-client-filter))
+					 :filter #'9p-handle-message))
 		(9p-log "9P client connected to Unix domain socket: %s" socket-path))
   9p-client-process)
 
