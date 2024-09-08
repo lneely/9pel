@@ -53,7 +53,12 @@ Returns the data as a string, or nil if no data is available."
 		data))
 
 (defun 9p-send-Tversion (proc msize version tag)
-	"Send a Tversion message to the server."
+	"Send a Tversion message to the server.
+
+  PROC The process
+  MSIZE The msize
+  VERSION The version
+  TAG The tag"
 	(let* ((version-bytes (string-to-unibyte version))
 				 (version-len (length version-bytes))
 				 (msg-size (+ 4 1 2 4 2 version-len))
@@ -63,43 +68,52 @@ Returns the data as a string, or nil if no data is available."
 		(9p-pbit16 buffer 5 tag)
 		(9p-pbit32 buffer 7 msize)
 		(9p-pbit16 buffer 11 version-len)
-		(setf (substring buffer 13) version-bytes)
+		(9p-pstring buffer 13 version-bytes)
 		(process-send-string proc buffer)))
 
 
-(defun 9p-recv-Rversion (buffer)
-	"Parse a received Rversion message from the server."
-	(let* ((size (9p-gbit32 buffer 0))
-				 (type (9p-gbit8 buffer 4))
-				 (tag (9p-gbit16 buffer 5))
-				 (msize (9p-gbit32 buffer 7))
-				 (version-len (9p-gbit16 buffer 11))
-				 (version (9p-gstring buffer 13 version-len)))
 
-		(if (= type (9p-message-type 'Rversion))
-				(list :type 'Rversion :size size :tag tag :msize msize :version version)
-			(list :type 'unknown :size size :tag tag))))
+(defun 9p-recv-Rversion (buffer)
+  "Parse a received Rversion message from the server.
+
+  BUFFER (sequence): The buffer containing the message.
+
+  Returns a list with message type, size, tag, msize, and version."
+  (let* ((size (9p-gbit32 buffer 0))
+         (type (9p-gbit8 buffer 4))
+         (tag (9p-gbit16 buffer 5))
+         (msize (9p-gbit32 buffer 7))
+         (version-len (9p-gbit16 buffer 11))
+         (version (9p-gstring buffer 13 version-len)))
+
+    (if (= type (9p-message-type 'Rversion))
+        (list :type 'Rversion :size size :tag tag :msize msize :version version)
+      (list :type 'unknown :size size :tag tag))))
+
 
 (defun 9p-send-Tauth (proc afid uname aname tag)
-	"Send a Tauth message to the server."
+  "Send a Tauth message to the server.
+
+  PROC: The process to send the message to.
+  AFID: The authentication fid.
+  UNAME: The username to authenticate.
+  ANAME: The authentication name.
+  TAG: The tag for the message."
 	(let* ((uname-bytes (string-to-unibyte uname))
 				 (uname-len (length uname-bytes))
 				 (aname-bytes (string-to-unibyte aname))
 				 (aname-len (length aname-bytes))
 				 (msg-size (+ 4 1 2 4 2 uname-len 2 aname-len))
 				 (buffer (make-string msg-size 0 t)))
-		
-		;; Construct the message
+
 		(9p-pbit32 buffer 0 msg-size)
 		(9p-pbit8 buffer 4 (9p-message-type 'Tauth))
 		(9p-pbit16 buffer 5 tag)
 		(9p-pbit32 buffer 7 afid)
 		(9p-pbit16 buffer 11 uname-len)
-		(dotimes (i uname-len)
-			(aset buffer (+ 13 i) (aref uname-bytes i)))
+		(9p-pstring buffer 13 uname)
 		(9p-pbit16 buffer (+ 13 uname-len) aname-len)
-		(dotimes (i aname-len)
-			(aset buffer (+ 15 uname-len i) (aref aname-bytes i)))
+		(9p-pstring buffer (+ 15 uname-len) aname)
 		(process-send-string proc buffer)))
 
 (defun 9p-recv-Rauth (buffer)
@@ -119,7 +133,41 @@ Returns the data as a string, or nil if no data is available."
 				
 				;; Unknown message type
 				(list :type 'unknown :size size :tag tag)))))
+(defun 9p-send-Tattach (proc type tag fid afid uname aname)
+	"Send a Tattach message to the server.
 
-(provide '9p-client)
+	PROC: The process to send the message to.
+	TYPE: The type of the message.
+	TAG: The tag of the message.
+	FID: The fid of the message.
+	AFID: The afid of the message.
+	UNAME: The username to attach.
+	ANAME: The attach name."
+	(let* ((uname-bytes (string-to-unibyte uname))
+				 (uname-len (length uname-bytes))
+				 (aname-bytes (string-to-unibyte aname))
+				 (aname-len (length aname-bytes))
+				 (msg-size (+ 4 1 2 4 4 2 uname-len 2 aname-len))
+				 (buffer (make-string msg-size 0 t)))
+
+		(9p-pbit32 buffer 0 msg-size)
+		(9p-pbit8 buffer 4 (9p-message-type 'Tattach))
+		(9p-pbit16 buffer 5 tag)
+		(9p-pbit32 buffer 7 fid)
+		(9p-pbit32 buffer 11 afid)
+		(9p-pbit16 buffer 15 uname-len)
+		(9p-pstring buffer 17 uname)
+		(9p-pbit16 buffer (+ 17 uname-len) aname-len)
+		(9p-pbit16 buffer (+ 19 uname-len) aname)
+		(process-send-string proc buffer)))
+
+(defun 9p-recv-Rattach (buffer)
+	"Receive Rattach message stored in BUFFER."
+	(let* ((size (9p-gbit32 buffer 0))
+				 (type (9p-gbit8 buffer 4))
+				 (tag (9p-gbit16 buffer 5))
+				 (9p-log "Client: Got Rattach message")))
+
+	(provide '9p-client)
 
 ;;; 9p-client.el ends here
