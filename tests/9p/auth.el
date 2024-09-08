@@ -1,4 +1,4 @@
-;;; tauth.el -- 9p auth message exchange tests
+;;; auth.el -- 9p auth message exchange tests
 
 ;;; Commentary:
 ;;;
@@ -11,7 +11,7 @@
 (add-to-list 'load-path "../../9p")
 
 (require 'ert)
-(require '9p)
+(require '9p-server)
 (require '9p-client)
 
 ;; mock server-client interaction to test transmit / respond for
@@ -56,4 +56,4 @@
       (9p-stop-client)
       (9p-stop-server)))
 
-;;; tauth.el ends here
+;;; auth.el ends here

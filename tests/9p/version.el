@@ -1,4 +1,4 @@
-;;; tversion.el -- 9p version message exchange tests
+;;; version.el -- 9p version message exchange tests
 
 ;;; Commentary:
 ;;;
@@ -10,7 +10,7 @@
 (add-to-list 'load-path "../../9p")
 
 (require 'ert)
-(require '9p)
+(require '9p-server)
 (require '9p-client)
 
 ;; mock server-client interaction to test transmit / respond for
@@ -53,4 +53,4 @@
       (9p-stop-client)
       (9p-stop-server))))
 
-;;; tversion.el ends here
+;;; version.el ends here
