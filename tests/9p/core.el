@@ -6,6 +6,9 @@
 
 ;;; Code:
 
+(add-to-list 'load-path "../../9p")
+(add-to-list 'load-path "../../vfs")
+
 (require '9p-util)
 (require '9p-server)
 (require 'vfs)
