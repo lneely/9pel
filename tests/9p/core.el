@@ -9,6 +9,7 @@
 (add-to-list 'load-path "../../9p")
 (add-to-list 'load-path "../../vfs")
 
+(require 'ert)
 (require '9p-util)
 (require '9p-server)
 (require 'vfs)
@@ -36,6 +37,26 @@
 			(should (= (nth 0 qid) 9P-QTFILE))
 			(should (nth 1 qid))
 			(should (= (nth 2 qid) (sxhash test-path))))))
+
+(defun test-9p-in-namespace-p ()
+	"Test path validation."
+	(should (9p-in-namespace-p 9p-root-namespace))
+
+	;; rootfs is not in namespace
+	(should-not (9p-in-namespace-p "/"))
+	(should-not (9p-in-namespace-p "/home/"))
+
+	;; rewritten paths are in namespace
+	(should (9p-in-namespace-p (9p-rewrite-path "/")))
+	(should (9p-in-namespace-p (9p-rewrite-path "/home/"))))
+														 
+														 
+
+(defun test-9p-rewrite-path ()
+	"Test path rewrite."
+	(should (string= (9p-rewrite-path "/") 9p-root-namespace))
+	(should (string= (9p-rewrite-path "/etc/")
+									 (concat 9p-root-namespace "etc/"))))
 
 (provide 'core)
 

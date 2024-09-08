@@ -25,21 +25,22 @@
 
 ;;; Virtual Filesystem Integration:
 
-(defvar 9p-root-namespace "/b/"
+(defvar 9p-root-namespace "/emacs/"
 	"The 9P server root namespace points to a vfs location.")
 
 (defun 9p-in-namespace-p (path)
   "Check if the given PATH is within the allowed namespace."
-  (or (string= path "/")
-      (cl-some (lambda (allowed-path)
-                 (string-prefix-p allowed-path path))
-               9p-root-namespace)))
+  (string-prefix-p 9p-root-namespace path))
 
 (defun 9p-rewrite-path (path)
   "Rewrite the PATH to ensure it stays within the allowed namespace."
   (if (9p-in-namespace-p path)
       path
-    (concat "/b" path)))
+    (let ((root (directory-file-name 9p-root-namespace))
+          (cleaned-path (if (string-prefix-p "/" path)
+                            (substring path 1)
+                          path)))
+      (concat root "/" cleaned-path))))
 
 ;;; Process management:
 
@@ -55,10 +56,8 @@ If SOCKET-NAME is not provided, use the default value.
 Sets the global `9p-server-process` and returns the server process object."
   (interactive)
   (when 9p-server-process
-    (error "9P server is already running. Stop it first with 9p-stop-server"))
-  (setq 9p-socket-name (or socket-name 9p-socket-name))
-  (unless 9p-socket-name
-    (setq 9p-socket-name "/tmp/emacs-9p-server.sock"))
+    (error "9P server is already running, stop with 9p-stop-server"))
+  (setq 9p-socket-name (or socket-name (9p-get-socket-path)))
   (when (file-exists-p 9p-socket-name)
     (delete-file 9p-socket-name))
   (setq 9p-server-process
